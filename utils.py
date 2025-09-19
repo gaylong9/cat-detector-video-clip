@@ -8,6 +8,7 @@ import shutil
 import tempfile
 import os
 
+from config import Config
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +60,7 @@ def append_csv(path: Path, rows: List[List]):
         if not exists:
             writer.writerow(["video", "start", "end"])
         writer.writerows(rows)
+        f.flush()
 
 
 def read_csv_rows(path: Path) -> List[List[str]]:
@@ -71,6 +73,30 @@ def read_csv_rows(path: Path) -> List[List[str]]:
     if rows and rows[0] and rows[0][0].lower() == "video":
         rows = rows[1:]
     return rows
+
+
+def read_timestamp_csv(input_csv: Path) -> List[Tuple[str, float, float]]:
+    """
+    读取片段时间csv，包含文件名、起始秒、终止秒三列
+    :return:
+    """
+    rows = read_csv_rows(input_csv)
+    fragments = []
+    for r in rows:
+        if len(r) < 3:
+            continue
+        video, s_str, e_str = r[0], r[1], r[2]
+        try:
+            s = float(s_str)
+            e = float(e_str)
+        except ValueError:
+            logger.warning("跳过格式错误行：%s", r)
+            continue
+        if s >= e:
+            logger.warning("跳过无效区间（start>=end）：%s", r)
+            continue
+        fragments.append((video, s, e))
+    return fragments
 
 
 def remove_tree(path: Path):
@@ -91,3 +117,6 @@ def safe_make_tmp_dir(base: Path, name: str) -> Path:
     tmp_dir = base / name
     tmp_dir.mkdir(parents=True, exist_ok=True)
     return tmp_dir
+
+
+

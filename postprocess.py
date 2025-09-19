@@ -2,33 +2,29 @@
 from pathlib import Path
 from typing import List, Tuple
 from config import Config
-from utils import read_csv_rows, write_csv, logger
-import csv
+from utils import read_csv_rows, write_csv, logger, read_timestamp_csv
 
 
-def merge_close_fragments(cfg: Config, input_csv: Path, output_csv: Path, max_gap: float = None) -> List[Tuple[str, float, float]]:
-    """
-    读取 input_csv (video,start,end)，对同一视频的相邻片段按时间排序并合并间隔 <= max_gap 的片段，
-    最终写入 output_csv 并返回合并后的片段列表。
-    """
-    if max_gap is None:
-        max_gap = cfg.max_merge_gap_seconds
+def expand_fragments(
+        fragments: List[Tuple[str, float, float]],
+        start_expand_seconds: float,
+        end_expand_seconds: float
+) -> List[Tuple[str, float, float]]:
+    """在片段前后扩展一定时长"""
+    expanded = []
+    for video, s, e in fragments:
+        new_s = max(0.0, s - start_expand_seconds)
+        new_e = e + end_expand_seconds
+        expanded.append((video, new_s, new_e))
+    return expanded
 
-    rows = read_csv_rows(input_csv)
+
+def merge_fragments(
+    fragments: List[Tuple[str, float, float]], max_gap: float
+) -> List[Tuple[str, float, float]]:
+    """对同一视频的片段按时间排序并合并间隔 <= max_gap 的片段"""
     video_groups = {}
-    for r in rows:
-        if len(r) < 3:
-            continue
-        video, s_str, e_str = r[0], r[1], r[2]
-        try:
-            s = float(s_str)
-            e = float(e_str)
-        except ValueError:
-            logger.warning("跳过格式错误行：%s", r)
-            continue
-        if s >= e:
-            logger.warning("跳过无效区间（start>=end）：%s", r)
-            continue
+    for video, s, e in fragments:
         video_groups.setdefault(video, []).append((s, e))
 
     merged_all = []
@@ -42,14 +38,47 @@ def merge_close_fragments(cfg: Config, input_csv: Path, output_csv: Path, max_ga
             last_s, last_e = merged[-1]
             gap = s - last_e
             if gap <= max_gap:
-                # 合并
-                merged[-1][1] = max(last_e, e)
+                merged[-1][1] = max(last_e, e)  # 合并
             else:
                 merged.append([s, e])
         for s, e in merged:
             merged_all.append((video, s, e))
+    return merged_all
 
-    # 写输出 CSV
+
+def postprocess(input_csv: Path, output_csv: Path, cfg: Config) -> List[Tuple[str, float, float]]:
+    """
+    后处理：扩展片段前后 -> 合并相邻片段 -> 写入输出 CSV
+    """
+
+    start_expand_seconds = cfg.start_expand_seconds
+    end_expand_seconds = cfg.end_expand_seconds
+    max_gap = cfg.max_merge_gap_seconds
+
+    # 若存在ok文件，跳过后处理
+    postprocess_ok = output_csv.parent / "postprocess.ok"
+    if postprocess_ok.exists():
+        logger.info("postprocess：发现postprocess.ok，跳过后处理")
+        return []
+
+    fragments = read_timestamp_csv(input_csv)
+
+    # Step1: 扩展
+    fragments = expand_fragments(fragments, start_expand_seconds, end_expand_seconds)
+
+    # Step2: 合并
+    merged_all = merge_fragments(fragments, max_gap)
+
+    # 写输出
     write_csv(output_csv, [[v, f"{s:.2f}", f"{e:.2f}"] for v, s, e in merged_all])
-    logger.info("合并完成：原片段数=%d 合并后片段=%d 保存至=%s", len(rows), len(merged_all), output_csv)
+    logger.info(
+        "后处理完成：原片段=%d  扩展+合并后片段=%d  保存至=%s",
+        len(fragments),
+        len(merged_all),
+        output_csv,
+    )
+
+    # postprocess.ok
+    postprocess_ok.touch()
+
     return merged_all

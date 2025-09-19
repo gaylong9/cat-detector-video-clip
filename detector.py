@@ -1,4 +1,6 @@
 # detector.py
+import os
+
 from ultralytics import YOLO
 import cv2
 from pathlib import Path
@@ -23,20 +25,26 @@ class Detector:
         files = sorted([f for f in p.iterdir() if f.suffix.lower() in self.cfg.video_extensions])
         return files
 
-    def detect_all(self, append: bool = True) -> List[Tuple[str, float, float]]:
+    def detect_all(self) -> None:
         """
         遍历 input_dir 中的视频，执行逐帧检测并将猫段写入 timestamps csv。
         返回检测到的片段列表（用于后续处理或测试）。
         """
-        processed_log = Path(self.cfg.output_dir) / self.cfg.processed_log_name
-        timestamps_path = Path(self.cfg.output_dir) / self.cfg.timestamps_name
+        processed_log = Path(self.cfg.output_dir) / self.cfg.tmp_dir_name / self.cfg.processed_log_name
+        timestamps_path = Path(self.cfg.output_dir) / self.cfg.tmp_dir_name/ self.cfg.timestamps_name
+        detect_ok = Path(self.cfg.output_dir) / self.cfg.tmp_dir_name / 'detect.ok'
+
+        # 若检测均完成，跳过
+        if detect_ok.exists() and timestamps_path.exists():
+            logger.info("发现detect.ok，检测均已完成，跳过本阶段")
+            return
 
         # 已处理集合
         processed = set()
         if processed_log.exists():
             processed = set([l.strip() for l in processed_log.read_text(encoding='utf-8').splitlines() if l.strip()])
 
-        found_fragments = []
+        found_fragment_num = 0
 
         video_files = self._iter_video_files()
         for video_path in tqdm(video_files, desc="扫描视频文件", unit="file"):
@@ -52,11 +60,15 @@ class Detector:
             processed_log.parent.mkdir(parents=True, exist_ok=True)
             with processed_log.open("a", encoding='utf-8') as f:
                 f.write(video_path.name + "\n")
+                f.flush()
 
-            found_fragments.extend([(video_path.name, s, e) for s, e in fragments])
+            found_fragment_num += len(fragments)
 
-        logger.info("检测完成，总片段数：%d 保存至：%s", len(found_fragments), timestamps_path)
-        return found_fragments
+        # 检测完成，创建.ok文件
+        detect_ok.touch()
+
+        logger.info("检测完成，总片段数：%d 保存至：%s", found_fragment_num, timestamps_path)
+
 
     def detect_video(self, video_path: Path) -> List[Tuple[float, float]]:
         """
@@ -86,11 +98,12 @@ class Detector:
             while True:
                 ret, frame = cap.read()
                 if not ret:
-                    # 视频结尾，若正在记录猫段，则结束
+                    # 视频结尾，若正在记录猫段，则结束，且倒推4s作为片段
                     if cat_start_frame is not None:
                         cat_end_frame = frame_idx - 1
-                        fragments.append((cat_start_frame / fps, cat_end_frame / fps))
-                        cat_start_frame = None
+                        end_time = cat_end_frame / fps
+                        start_time = end_time - 4
+                        fragments.append((start_time, end_time))
                     break
 
                 # 跳帧计数
@@ -107,19 +120,20 @@ class Detector:
                 if has_cat:
                     if cat_start_frame is None:
                         cat_start_frame = frame_idx
+                        if self.cfg.save_start_frame:
+                            det_img = results[0].plot()
+                            save_path = os.path.join(self.cfg.output_dir, self.cfg.tmp_dir_name, 'frags', f"{video_path.name}-{frame_idx/fps:.2f}.jpg")
+                            cv2.imwrite(save_path, det_img)
                     # 当检测到猫时，下一次跳过的帧数按 with_start 系数
-                    skip_frames = int(self.cfg.frame_step_coef_with_start * self.cfg.min_continue_seconds * fps)
+                    skip_frames = int(self.cfg.detect_step_with_start * fps)
                 else:
                     if cat_start_frame is not None:
-                        # 猫消失，记录结束（frame_idx-1）
-                        cat_end_frame = frame_idx - 1
-                        # 仅记录满足最小持续时间的片段
-                        duration = (cat_end_frame - cat_start_frame + 1) / fps
-                        if duration >= self.cfg.min_continue_seconds:
-                            fragments.append((cat_start_frame / fps, cat_end_frame / fps))
+                        # 猫消失，记录结束
+                        cat_end_frame = frame_idx
+                        fragments.append((cat_start_frame / fps, cat_end_frame / fps))
                         cat_start_frame = None
                     # 未检测到猫时使用 without_start 系数跳帧
-                    skip_frames = int(self.cfg.frame_step_coef_without_start * self.cfg.min_continue_seconds * fps)
+                    skip_frames = int(self.cfg.detect_step_without_start * fps)
 
                 # 至少跳0帧确保每次前进
                 frame_skip_remaining = max(0, skip_frames)
