@@ -132,6 +132,10 @@ class Detector:
                         cat_end_frame = frame_idx
                         fragments.append((cat_start_frame / fps, cat_end_frame / fps))
                         cat_start_frame = None
+                        if self.cfg.save_start_frame:
+                            det_img = results[0].plot()
+                            save_path = os.path.join(self.cfg.output_dir, self.cfg.tmp_dir_name, 'frags', f"{video_path.name}-{frame_idx/fps:.2f}-end.jpg")
+                            cv2.imwrite(save_path, det_img)
                     # 未检测到猫时使用 without_start 系数跳帧
                     skip_frames = int(self.cfg.detect_step_without_start * fps)
 

@@ -17,7 +17,7 @@ class Config:
     save_start_frame: bool = False  # 保存开始帧，观察检测结果
 
     # 检测步长：出现猫时与未出现猫时的检测步长，单位s
-    detect_step_with_start: float = 2.0
+    detect_step_with_start: float = 1.0
     detect_step_without_start: float = 0.5
 
     # 时间戳与临时/最终文件
