@@ -1,6 +1,7 @@
 # detector.py
 import os
 
+import torch
 from ultralytics import YOLO
 import cv2
 from pathlib import Path
@@ -14,7 +15,9 @@ import math
 class Detector:
     def __init__(self, cfg: Config):
         self.cfg = cfg
-        self.model = YOLO(cfg.model_path)
+        self.device = device="cuda:0" if torch.cuda.is_available() else "cpu"
+        self.model = YOLO(cfg.model_path).to(self.device)
+        logger.info(f"YOLO模型位于设备: {self.model.device}")
         # 如果需要，可设置 model.conf 或其他超参数
         # self.model.conf = cfg.confidence_threshold
 

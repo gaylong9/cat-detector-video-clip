@@ -47,8 +47,8 @@ class Clipper:
                 # "-c:v", "libx264",
                 # "-c:a", "aac",
                 "-c", "copy",
-                "-crf", "23",
-                "-preset", "medium",
+                # "-crf", "23",
+                # "-preset", "medium",
                 "-hide_banner",
                 "-loglevel", "error",
                 # "-avoid_negative_ts", "make_zero",
@@ -70,6 +70,7 @@ class Clipper:
 
     def concat(self, final_video_path: Path):
         # 转码拼接
+        logger.info(f"拼接中间文件...")
         tmp_concat_path = final_video_path.with_suffix('.tmp.mp4')
         cmd_transcat = [
             self.ffmpeg,
@@ -80,17 +81,18 @@ class Clipper:
             # "-c:v", "libx264",
             # "-c:a", "aac",
             "-c", "copy",
-            "-crf", "23",
-            "-preset", "medium",
+            # "-crf", "23",
+            # "-preset", "medium",
             # "-fflags", "+genpts",
             # "-movflags", "+faststart",
             str(tmp_concat_path)
         ]
         ret1, out1, err1 = run_cmd(cmd_transcat)
-        if ret1 != 0 or not final_video_path.exists():
+        if ret1 != 0 or not tmp_concat_path.exists():
             raise RuntimeError(f"拼接失败：{err1}")
 
         # 2) remux +genpts -> final
+        logger.info(f"生成最终文件...")
         cmd2 = [
             self.ffmpeg,
             "-y",
