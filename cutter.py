@@ -36,13 +36,14 @@ class Cutter:
             tmp_frag_path = frag_path.with_suffix('.tmp.mp4')
 
             # 转码方式虽然支持较短片段，但速度极慢体积极大，还是选用-c copy，前期调大片段时长
-            # logger.debug("使用转码裁剪：%s [%s - %s]", video_name, s, e)
+            # -ss在-i前可自动选择临近关键帧
+            logger.info(f"使用转码裁剪：{video_name} [{format_seconds(s)} - {format_seconds(e)}]")
             cmd_trans = [
                 self.ffmpeg,
                 "-y",
-                "-i", str(input_path),
                 "-ss", format_seconds(s),
                 "-to", format_seconds(e),
+                "-i", str(input_path),
                 # "-c:v", "libx264",
                 # "-c:a", "aac",
                 "-c", "copy",

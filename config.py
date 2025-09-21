@@ -28,8 +28,8 @@ class Config:
     # 裁剪与拼接
     max_merge_gap_seconds: float = 5.0  # 合并相邻片段的最大间隔秒数
     final_video_name: str = "output.mp4"
-    start_expand_seconds: float = 3.0
-    end_expand_seconds: float = 3.0
+    start_expand_seconds: float = 2.0
+    end_expand_seconds: float = 2.0
 
     # 临时目录（在 output_dir 下）
     tmp_dir_name: str = "tmp_catclipper"
