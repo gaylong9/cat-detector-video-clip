@@ -68,27 +68,47 @@ class Clipper:
         self.concat_list_path.write_text("\n".join(concat_lines), encoding='utf-8')
 
 
-    def concat(self, final_video_path):
+    def concat(self, final_video_path: Path):
         # 转码拼接
+        tmp_concat_path = final_video_path.with_suffix('.tmp.mp4')
         cmd_transcat = [
             self.ffmpeg,
             "-y",
             "-f", "concat",
             "-safe", "0",
-            " -fflags", "+genpts",
             "-i", str(self.concat_list_path),
             # "-c:v", "libx264",
             # "-c:a", "aac",
             "-c", "copy",
             "-crf", "23",
             "-preset", "medium",
+            # "-fflags", "+genpts",
+            # "-movflags", "+faststart",
+            str(tmp_concat_path)
+        ]
+        ret1, out1, err1 = run_cmd(cmd_transcat)
+        if ret1 != 0 or not final_video_path.exists():
+            raise RuntimeError(f"拼接失败：{err1}")
+
+        # 2) remux +genpts -> final
+        cmd2 = [
+            self.ffmpeg,
+            "-y",
+            "-i", str(tmp_concat_path),
+            "-c", "copy",
+            "-fflags", "+genpts",
             "-movflags", "+faststart",
             str(final_video_path)
         ]
-        ret2, out2, err2 = run_cmd(cmd_transcat)
+        ret2, out2, err2 = run_cmd(cmd2)
         if ret2 != 0 or not final_video_path.exists():
-            raise RuntimeError(f"拼接失败：{err2}")
+            raise RuntimeError(f"拼接后修复失败: {err2}")
 
+        try:
+            tmp_concat_path.unlink()
+        except Exception as e:
+            logger.warn(f"清理临时拼接文件失败 {e}")
+            pass
 
     def cut_and_concat(self, input_csv: Path) -> Path:
         """
