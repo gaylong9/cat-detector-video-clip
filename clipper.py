@@ -1,4 +1,4 @@
-# cutter.py
+# clipper.py
 from pathlib import Path
 from typing import List, Tuple
 from config import Config
@@ -7,7 +7,7 @@ from tqdm import tqdm
 import os
 
 
-class Cutter:
+class Clipper:
     def __init__(self, cfg: Config):
         self.cfg = cfg
         self.ffmpeg = find_ffmpeg()
@@ -37,7 +37,7 @@ class Cutter:
 
             # 转码方式虽然支持较短片段，但速度极慢体积极大，还是选用-c copy，前期调大片段时长
             # -ss在-i前可自动选择临近关键帧
-            logger.info(f"使用转码裁剪：{video_name} [{format_seconds(s)} - {format_seconds(e)}]")
+            # logger.info(f"使用转码裁剪：{video_name} [{format_seconds(s)} - {format_seconds(e)}]")
             cmd_trans = [
                 self.ffmpeg,
                 "-y",
@@ -51,6 +51,7 @@ class Cutter:
                 "-preset", "medium",
                 "-hide_banner",
                 "-loglevel", "error",
+                # "-avoid_negative_ts", "make_zero",
                 str(tmp_frag_path)
             ]
             ret, out, err = run_cmd(cmd_trans)
@@ -74,12 +75,14 @@ class Cutter:
             "-y",
             "-f", "concat",
             "-safe", "0",
+            " -fflags", "+genpts",
             "-i", str(self.concat_list_path),
             # "-c:v", "libx264",
             # "-c:a", "aac",
             "-c", "copy",
             "-crf", "23",
             "-preset", "medium",
+            "-movflags", "+faststart",
             str(final_video_path)
         ]
         ret2, out2, err2 = run_cmd(cmd_transcat)

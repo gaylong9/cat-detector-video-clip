@@ -12,9 +12,9 @@ class Config:
 
     # YOLO / 检测
     model_path: str = "yolo11s.pt"  # 支持 yolo11 (n/s/m/l/x)
-    confidence_threshold: float = 0.6
+    confidence_threshold: float = 0.5
     cat_class_id: List[int] = field(default_factory=lambda: [15])  # yolo cat class id(s)
-    save_start_frame: bool = False  # 保存开始帧，观察检测结果
+    save_detect_frame: bool = False  # 保存检测首尾帧，观察检测结果
 
     # 检测步长：出现猫时与未出现猫时的检测步长，单位s
     detect_step_with_start: float = 1.0

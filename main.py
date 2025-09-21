@@ -7,7 +7,7 @@ from postprocess import postprocess
 import utils
 from config import Config
 from detector import Detector
-from cutter import Cutter
+from clipper import Clipper
 from utils import logger as utils_logger, find_ffmpeg
 
 # 配置日志
@@ -29,7 +29,7 @@ def parse_args():
     p.add_argument("--output_dir", type=str, help="输出目录）")
     p.add_argument("--model", type=str, help="yolo 模型，默认 yolo11s.pt，支持n/s/m/l/x多种尺寸")
     p.add_argument('--confidence_threshold', type=float, help="检测阈值，0~1，模拟0.6")
-    p.add_argument('--save_start_frame', action="store_true", help="保存每个片段的开始帧，观察检测结果，默认关闭")
+    p.add_argument('--save_detect_frame', action="store_true", help="保存每个片段的开始帧，观察检测结果，默认关闭")
     p.add_argument("--force", action="store_true", help="检测阶段会记录进度以断点继续，可force强制重新检测")
     p.add_argument("--merge_gap", type=float, help="合并片段的最大间隔秒数，默认0.5s")
     p.add_argument("--no_clean", action="store_true", help="拼接后不删除临时片段")
@@ -51,8 +51,8 @@ def main():
         cfg.max_merge_gap_seconds = args.merge_gap
     if args.no_clean:
         cfg.delete_temp_files = False
-    if args.save_start_frame:
-        cfg.save_start_frame = True
+    if args.save_detect_frame:
+        cfg.save_detect_frame = True
 
     logger.info("配置：input=%s output=%s model=%s", cfg.input_dir, cfg.output_dir, cfg.model_path)
 
@@ -82,7 +82,7 @@ def main():
     postprocess(timestamps_in, timestamps_merge, cfg)
 
     # Step 3: 裁剪并拼接最终视频（按合并后顺序）
-    cutter = Cutter(cfg)
+    cutter = Clipper(cfg)
     # merged is list of tuples (video, s, e)
     final_video = cutter.cut_and_concat(timestamps_merge)
 

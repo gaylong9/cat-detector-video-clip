@@ -87,6 +87,10 @@ class Detector:
             logger.error("无法获取视频帧率：%s", video_path)
             raise Exception("无法获取视频帧率")
         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
+        if total_frames <= 0:
+            logger.error("无法获取视频总帧数：%s", video_path)
+            raise Exception("无法获取视频总帧数")
+        duration = total_frames / fps
         frame_idx = 0
 
         fragments = []
@@ -103,8 +107,7 @@ class Detector:
                 if not ret:
                     # 视频结尾，若正在记录猫段，则结束
                     if cat_start_time is not None:
-                        end_time = cap.get(cv2.CAP_PROP_POS_MSEC) / 1000.0
-                        fragments.append((cat_start_time, end_time))
+                        fragments.append((cat_start_time, duration))
                     break
 
                 # 当前帧对应的视频时间（秒）
@@ -127,7 +130,7 @@ class Detector:
                 if has_cat:
                     if cat_start_time is None:
                         cat_start_time = current_time
-                        if self.cfg.save_start_frame:
+                        if self.cfg.save_detect_frame:
                             det_img = results[0].plot()
                             save_path = os.path.join(
                                 self.cfg.output_dir,
@@ -144,7 +147,7 @@ class Detector:
                         cat_end_time = current_time
                         fragments.append((cat_start_time, cat_end_time))
                         cat_start_time = None
-                        if self.cfg.save_start_frame:
+                        if self.cfg.save_detect_frame:
                             det_img = results[0].plot()
                             save_path = os.path.join(
                                 self.cfg.output_dir,
