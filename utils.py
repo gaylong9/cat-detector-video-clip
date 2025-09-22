@@ -46,21 +46,21 @@ def format_seconds(sec: float) -> str:
     return f"{sec:.2f}"
 
 
-def write_csv(path: Path, rows: List[List]):
+def write_csv(path: Path, rows: List[List], col_names: List[str]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", newline='', encoding='utf-8') as f:
         writer = csv.writer(f)
-        writer.writerow(["video", "start", "end"])
+        writer.writerow(col_names)
         writer.writerows(rows)
 
 
-def append_csv(path: Path, rows: List[List]):
+def append_csv(path: Path, rows: List[List], col_names: List[str]):
     path.parent.mkdir(parents=True, exist_ok=True)
     exists = path.exists()
     with path.open("a", newline='', encoding='utf-8') as f:
         writer = csv.writer(f)
         if not exists:
-            writer.writerow(["video", "start", "end"])
+            writer.writerow(col_names)
         writer.writerows(rows)
         f.flush()
 

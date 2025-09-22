@@ -2,7 +2,7 @@
 from pathlib import Path
 from typing import List, Tuple
 from config import Config
-from utils import read_csv_rows, write_csv, logger, read_fragment_csv, read_timestamp_csv
+from utils import write_csv, logger, read_timestamp_csv
 
 
 def expand_fragments(
@@ -70,7 +70,7 @@ def postprocess(input_csv: Path, output_csv: Path, cfg: Config) -> List[Tuple[st
     merged_all = merge_fragments(fragments, max_gap)
 
     # 写输出
-    write_csv(output_csv, [[v, f"{s:.2f}", f"{e:.2f}"] for v, s, e in merged_all])
+    write_csv(output_csv, [[v, f"{s:.2f}", f"{e:.2f}"] for v, s, e in merged_all], ["video", "start", "end"])
     logger.info(
         "后处理完成：原片段=%d  扩展+合并后片段=%d  保存至=%s",
         len(fragments),

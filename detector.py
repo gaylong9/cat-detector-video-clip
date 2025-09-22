@@ -60,7 +60,7 @@ class Detector:
             frame_times = self.detect_video(video_path)
             rows = [[video_path.name, format_seconds(t)] for t in frame_times]
             if rows:
-                append_csv(timestamps_path, rows)
+                append_csv(timestamps_path, rows, ['video_name', 'frame_time'])
             # 追加 processed_log
             processed_log.parent.mkdir(parents=True, exist_ok=True)
             with processed_log.open("a", encoding='utf-8') as f:
