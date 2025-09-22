@@ -20,6 +20,8 @@ conda env create -f environment.yml
 conda activate catclip
 ```
 
+**若有GPU，可自行安装CUDA版PyTorch。** 
+
 ### 2. 安装 FFmpeg
 
 请根据操作系统安装 FFmpeg。
