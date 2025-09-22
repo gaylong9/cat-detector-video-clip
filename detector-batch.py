@@ -15,11 +15,9 @@ import math
 class Detector:
     def __init__(self, cfg: Config):
         self.cfg = cfg
-        self.device = device="cuda:0" if torch.cuda.is_available() else "cpu"
+        self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
         self.model = YOLO(cfg.model_path).to(self.device)
         logger.info(f"YOLO模型位于设备: {self.model.device}")
-        # 如果需要，可设置 model.conf 或其他超参数
-        # self.model.conf = cfg.confidence_threshold
 
     def _iter_video_files(self) -> List[Path]:
         p = Path(self.cfg.input_dir)
