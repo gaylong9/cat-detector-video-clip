@@ -45,20 +45,22 @@ python main.py --input_dir "D:/Desktop/dongdong" --output_dir "D:/Desktop/dongdo
 - `--save_detect_frame`	开关参数，保存片段开始与结尾帧。默认关闭；开启后，会自动保存每个有效猫片段的 “第一帧”（带检测框标注）和末尾帧到输出目录，用于验证检测效果。若使用，无需传值，直接加参数即可：`--save_detect_frame`
 - `--force`	开关参数，强制重新检测。工具默认会记录已处理的视频（断点续跑）；开启后，会忽略历史进度，强制重新检测所有视频。使用时直接加参数：`--force`
 - `--no_clean`	开关参数，保留临时片段等中间数据。默认拼接完成后自动删除临时片段等中间数据（节省空间）；开启后，会保留所有裁剪后的独立片段（便于核验）。使用时直接加参数：`--no_clean`
+- `--step` 检测间隔，单位秒，默认0.25秒。每隔指定时长，检测一帧。故间隔越小，漏检概率越低，但耗时越长。如`--step 0.5`增加间隔。
+- `--batch_size` 批量处理视频帧的批次大小，默认为1，即逐个处理。CPU时默认即可，GPU时可2/4/8/16尝试，提高GPU使用率，加快检测速度。
 
 ## 示例
 
 ```bash
-# 假设桌面目录下有一个 dongdong 文件夹，里面存放监控视频。运行后，会在 dongdong 文件夹下生成最终视频（例如 output.mp4）。
+# 假设桌面目录下有一个 dongdong 文件夹，里面存放监控视频。运行后，会在 dongdong 文件夹下生成最终视频（output.mp4）。
 python main.py --input_dir "D:/Desktop/dongdong" --output_dir "D:/Desktop/dongdong"
 
 # 基础用法：默认参数，指定输入/输出目录
 python main.py --input_dir "C:/Monitor/202409" --output_dir "C:/CatResult"
 
-# 高精度检测：用中尺寸模型，降低阈值减少漏检
-python main.py --input_dir "C:/Monitor/202409" --output_dir "C:/CatResult" --model "yolo11m.pt" --confidence_threshold 0.45
+# 高精度检测：用中尺寸模型，降低阈值减少漏检，缩小检测间隔
+python main.py --input_dir "C:/Monitor/202409" --output_dir "C:/CatResult" --model "yolo11m.pt" --confidence_threshold 0.45 --step 0.1
 
-# 保留临时片段+验证检测效果：开启保存开始帧+不清理临时文件
+# 保留临时片段+验证检测效果：开启保存检测帧图像+不清理临时文件
 python main.py --input_dir "C:/Monitor/202409" --output_dir "C:/CatResult" --save_detect_frame --no_clean
 
 # 强制重新检测：忽略历史进度

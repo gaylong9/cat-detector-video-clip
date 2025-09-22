@@ -2,7 +2,7 @@
 from pathlib import Path
 from typing import List, Tuple
 from config import Config
-from utils import run_cmd, find_ffmpeg, safe_make_tmp_dir, format_seconds, logger, read_csv_rows, read_timestamp_csv
+from utils import run_cmd, find_ffmpeg, safe_make_tmp_dir, format_seconds, logger, read_csv_rows, read_fragment_csv
 from tqdm import tqdm
 import os
 
@@ -118,7 +118,7 @@ class Clipper:
         返回 final_video_path
         """
         # 从csv读取片段时间数据
-        fragments = read_timestamp_csv(input_csv)
+        fragments = read_fragment_csv(input_csv)
         self.cut(fragments)
         final_video_path = self.output_dir / self.cfg.final_video_name
         self.concat(final_video_path)

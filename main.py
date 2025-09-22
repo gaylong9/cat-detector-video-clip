@@ -31,8 +31,9 @@ def parse_args():
     p.add_argument('--confidence_threshold', type=float, help="检测阈值，0~1，模拟0.6")
     p.add_argument('--save_detect_frame', action="store_true", help="保存每个片段的开始帧，观察检测结果，默认关闭")
     p.add_argument("--force", action="store_true", help="检测阶段会记录进度以断点继续，可force强制重新检测")
-    p.add_argument("--merge_gap", type=float, help="合并片段的最大间隔秒数，默认0.5s")
     p.add_argument("--no_clean", action="store_true", help="拼接后不删除临时片段")
+    p.add_argument("--batch_size", type=int, help="检测阶段处理视频的批次帧大小，默认1，有GPU可尝试扩大")
+    p.add_argument("--step", type=float, help="片段前后扩展时间，默认0.5秒")
     return p.parse_args()
 
 
@@ -47,12 +48,14 @@ def main():
         cfg.model_path = args.model
     if args.confidence_threshold:
         cfg.confidence_threshold = args.confidence_threshold
-    if args.merge_gap:
-        cfg.max_merge_gap_seconds = args.merge_gap
     if args.no_clean:
         cfg.delete_temp_files = False
     if args.save_detect_frame:
         cfg.save_detect_frame = True
+    if args.batch_size:
+        cfg.batch_size = args.batch_size
+    if args.step:
+        cfg.detect_step = args.step
 
     logger.info("配置：input=%s output=%s model=%s", cfg.input_dir, cfg.output_dir, cfg.model_path)
 
@@ -76,15 +79,14 @@ def main():
 
     detector.detect_all()
 
-    # Step 2: 后处理，片段前后扩展一段时间过渡，并合并靠近片段（此步从 timestamps.csv 读取解析）
-    timestamps_in = Path(cfg.output_dir) / cfg.tmp_dir_name/ cfg.timestamps_name
-    timestamps_merge = Path(cfg.output_dir) / cfg.tmp_dir_name/ cfg.merged_timestamps_name
-    postprocess(timestamps_in, timestamps_merge, cfg)
+    # Step 2: 后处理，帧前后扩展一段时间过渡，并合并靠近片段（此步从 timestamps.csv 读取解析）
+    timestamp_csv_path = Path(cfg.output_dir) / cfg.tmp_dir_name/ cfg.timestamp_csv_name
+    fragment_csv_path = Path(cfg.output_dir) / cfg.tmp_dir_name/ cfg.fragment_csv_name
+    postprocess(timestamp_csv_path, fragment_csv_path, cfg)
 
     # Step 3: 裁剪并拼接最终视频（按合并后顺序）
     cutter = Clipper(cfg)
-    # merged is list of tuples (video, s, e)
-    final_video = cutter.cut_and_concat(timestamps_merge)
+    final_video = cutter.cut_and_concat(fragment_csv_path)
 
     # Step 4: 清理临时文件
     if cfg.delete_temp_files:

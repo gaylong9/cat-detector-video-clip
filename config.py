@@ -15,14 +15,12 @@ class Config:
     confidence_threshold: float = 0.5
     cat_class_id: List[int] = field(default_factory=lambda: [15])  # yolo cat class id(s)
     save_detect_frame: bool = False  # 保存检测首尾帧，观察检测结果
-
-    # 检测步长：出现猫时与未出现猫时的检测步长，单位s
-    detect_step_with_start: float = 1.0
-    detect_step_without_start: float = 0.5
+    detect_step: float = 0.25  # 检测步长：每隔一定时长检测一帧，单位s
+    batch_size: int = 1
 
     # 时间戳与临时/最终文件
-    timestamps_name: str = "cat_timestamps.csv"  # CSV: video,start_sec,end_sec
-    merged_timestamps_name: str = "merged_cat_timestamps.csv"
+    timestamp_csv_name: str = "cat_timestamps.csv"  # CSV: video,start_sec,end_sec
+    fragment_csv_name: str = "cat_fragments.csv"
     processed_log_name: str = "processed_videos.txt"
 
     # 裁剪与拼接

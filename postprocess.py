@@ -2,19 +2,19 @@
 from pathlib import Path
 from typing import List, Tuple
 from config import Config
-from utils import read_csv_rows, write_csv, logger, read_timestamp_csv
+from utils import read_csv_rows, write_csv, logger, read_fragment_csv, read_timestamp_csv
 
 
 def expand_fragments(
-        fragments: List[Tuple[str, float, float]],
+        timestamps: List[Tuple[str, float]],
         start_expand_seconds: float,
         end_expand_seconds: float
 ) -> List[Tuple[str, float, float]]:
-    """在片段前后扩展一定时长"""
+    """在帧前后扩展一定时长"""
     expanded = []
-    for video, s, e in fragments:
-        new_s = max(0.0, s - start_expand_seconds)
-        new_e = e + end_expand_seconds
+    for video, t in timestamps:
+        new_s = max(0.0, t - start_expand_seconds)
+        new_e = t + end_expand_seconds
         expanded.append((video, new_s, new_e))
     return expanded
 
@@ -48,7 +48,7 @@ def merge_fragments(
 
 def postprocess(input_csv: Path, output_csv: Path, cfg: Config) -> List[Tuple[str, float, float]]:
     """
-    后处理：扩展片段前后 -> 合并相邻片段 -> 写入输出 CSV
+    后处理：扩展帧前后 -> 合并相邻片段 -> 写入输出 CSV
     """
 
     start_expand_seconds = cfg.start_expand_seconds
@@ -61,10 +61,10 @@ def postprocess(input_csv: Path, output_csv: Path, cfg: Config) -> List[Tuple[st
         logger.info("postprocess：发现postprocess.ok，跳过后处理")
         return []
 
-    fragments = read_timestamp_csv(input_csv)
+    timestamps = read_timestamp_csv(input_csv)
 
     # Step1: 扩展
-    fragments = expand_fragments(fragments, start_expand_seconds, end_expand_seconds)
+    fragments = expand_fragments(timestamps, start_expand_seconds, end_expand_seconds)
 
     # Step2: 合并
     merged_all = merge_fragments(fragments, max_gap)

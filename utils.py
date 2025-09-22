@@ -8,6 +8,8 @@ import shutil
 import tempfile
 import os
 
+import torch
+
 from config import Config
 
 logger = logging.getLogger(__name__)
@@ -74,8 +76,27 @@ def read_csv_rows(path: Path) -> List[List[str]]:
         rows = rows[1:]
     return rows
 
+def read_timestamp_csv(input_csv: Path) -> List[Tuple[str, float]]:
+    """
+    读取时间戳csv，包含文件名和时间戳两列
+    :return:
+    """
+    rows = read_csv_rows(input_csv)
+    timestamps = []
+    for r in rows:
+        if len(r) < 2:
+            continue
+        video, timestamp_str = r[0], r[1]
+        try:
+            timestamp = float(timestamp_str)
+        except ValueError:
+            logger.warning("跳过格式错误行：%s", r)
+            continue
+        timestamps.append((video, timestamp))
+    return timestamps
 
-def read_timestamp_csv(input_csv: Path) -> List[Tuple[str, float, float]]:
+
+def read_fragment_csv(input_csv: Path) -> List[Tuple[str, float, float]]:
     """
     读取片段时间csv，包含文件名、起始秒、终止秒三列
     :return:
@@ -119,4 +140,12 @@ def safe_make_tmp_dir(base: Path, name: str) -> Path:
     return tmp_dir
 
 
+def support_cuda():
+    return torch.cuda.is_available()
+
+def support_fp16():
+    if not support_cuda():
+        return False
+    gpu_arch = torch.cuda.get_device_capability()
+    return gpu_arch[0] >= 6
 
