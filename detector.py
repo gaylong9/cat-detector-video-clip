@@ -52,23 +52,25 @@ class Detector:
         found_frame_num = 0
 
         video_files = self._iter_video_files()
-        for video_path in tqdm(video_files, desc="扫描视频文件", unit="file"):
-            if video_path.name in processed:
-                logger.info("跳过已处理：%s", video_path.name)
-                continue
+        with tqdm(total=len(video_files), desc="扫描视频文件", unit="file") as pbar:
+            for video_path in video_files:
+                if video_path.name in processed:
+                    logger.info("跳过已处理：%s", video_path.name)
+                    pbar.update(1)  # 手动更新进度条
+                    continue
 
-            frame_times = self.detect_video(video_path)
-            rows = [[video_path.name, format_seconds(t)] for t in frame_times]
-            if rows:
-                append_csv(timestamps_path, rows, ['video_name', 'frame_time'])
-            # 追加 processed_log
-            processed_log.parent.mkdir(parents=True, exist_ok=True)
-            with processed_log.open("a", encoding='utf-8') as f:
-                f.write(video_path.name + "\n")
-                f.flush()
+                frame_times = self.detect_video(video_path)
+                rows = [[video_path.name, format_seconds(t)] for t in frame_times]
+                if rows:
+                    append_csv(timestamps_path, rows, ['video_name', 'frame_time'])
+                # 追加 processed_log
+                processed_log.parent.mkdir(parents=True, exist_ok=True)
+                with processed_log.open("a", encoding='utf-8') as f:
+                    f.write(video_path.name + "\n")
+                    f.flush()
 
-            found_frame_num += len(frame_times)
-
+                found_frame_num += len(frame_times)
+                pbar.update(1)  # 手动更新进度条
         # 检测完成，创建.ok文件
         detect_ok.touch()
 
