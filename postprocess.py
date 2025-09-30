@@ -8,7 +8,8 @@ from utils import write_csv, logger, read_timestamp_csv
 def expand_fragments(
         timestamps: List[Tuple[str, float]],
         start_expand_seconds: float,
-        end_expand_seconds: float
+        end_expand_seconds: float,
+        cancel_flag=None
 ) -> List[Tuple[str, float, float]]:
     """在帧前后扩展一定时长"""
     expanded = []
@@ -20,7 +21,9 @@ def expand_fragments(
 
 
 def merge_fragments(
-    fragments: List[Tuple[str, float, float]], max_gap: float
+    fragments: List[Tuple[str, float, float]], 
+    max_gap: float,
+    cancel_flag=None
 ) -> List[Tuple[str, float, float]]:
     """对同一视频的片段按时间排序并合并间隔 <= max_gap 的片段"""
     video_groups = {}
@@ -46,11 +49,16 @@ def merge_fragments(
     return merged_all
 
 
-def postprocess(input_csv: Path, output_csv: Path, cfg: Config) -> List[Tuple[str, float, float]]:
+def postprocess(input_csv: Path, output_csv: Path, cfg: Config, cancel_flag=None) -> List[Tuple[str, float, float]]:
     """
     后处理：扩展帧前后 -> 合并相邻片段 -> 写入输出 CSV
     """
 
+    # 检查是否需要取消
+    if cancel_flag and cancel_flag():
+        logger.info("后处理任务已取消")
+        return []
+        
     start_expand_seconds = cfg.start_expand_seconds
     end_expand_seconds = cfg.end_expand_seconds
     max_gap = cfg.max_merge_gap_seconds
@@ -64,10 +72,20 @@ def postprocess(input_csv: Path, output_csv: Path, cfg: Config) -> List[Tuple[st
     timestamps = read_timestamp_csv(input_csv)
 
     # Step1: 扩展
-    fragments = expand_fragments(timestamps, start_expand_seconds, end_expand_seconds)
+    fragments = expand_fragments(timestamps, start_expand_seconds, end_expand_seconds, cancel_flag)
+    
+    # 检查是否需要取消
+    if cancel_flag and cancel_flag():
+        logger.info("后处理任务已取消")
+        return []
 
     # Step2: 合并
-    merged_all = merge_fragments(fragments, max_gap)
+    merged_all = merge_fragments(fragments, max_gap, cancel_flag)
+    
+    # 检查是否需要取消
+    if cancel_flag and cancel_flag():
+        logger.info("后处理任务已取消")
+        return []
 
     # 写输出
     write_csv(output_csv, [[v, f"{s:.2f}", f"{e:.2f}"] for v, s, e in merged_all], ["video", "start", "end"])

@@ -17,27 +17,23 @@ import math
 
 
 class Detector:
-    def __init__(self, cfg: Config):
+    def __init__(self, cfg: Config, progress_callback=None, cancel_flag=None):
         self.cfg = cfg
         self.device = "cuda:0" if utils.support_cuda() else "cpu"
         self.model = YOLO(cfg.model_path).to(self.device)
+        self.progress_callback = progress_callback
+        self.cancel_flag = cancel_flag
         logger.info(f"YOLO模型位于设备: {self.model.device}")
 
-    def _iter_video_files(self) -> List[Path]:
-        p = Path(self.cfg.input_dir)
-        if not p.exists():
-            raise FileNotFoundError(f"input_dir not found: {p}")
-        files = sorted([f for f in p.iterdir() if f.suffix.lower() in self.cfg.video_extensions])
-        return files
 
-    def detect_all(self) -> None:
+    def detect_all(self, video_paths: List[Path], tmp_path: Path) -> None:
         """
-        遍历 input_dir 中的视频，执行逐帧检测并将猫段写入 timestamps csv。
+        遍历传入的视频，执行逐帧检测并将猫段写入 timestamps csv。
         返回检测到的片段列表（用于后续处理或测试）。
         """
-        processed_log = Path(self.cfg.output_dir) / self.cfg.tmp_dir_name / self.cfg.processed_log_name
-        timestamps_path = Path(self.cfg.output_dir) / self.cfg.tmp_dir_name/ self.cfg.timestamp_csv_name
-        detect_ok = Path(self.cfg.output_dir) / self.cfg.tmp_dir_name / 'detect.ok'
+        processed_log = tmp_path / self.cfg.processed_log_name
+        timestamps_path = tmp_path / self.cfg.timestamp_csv_name
+        detect_ok = tmp_path / 'detect.ok'
 
         # 若检测均完成，跳过
         if detect_ok.exists() and timestamps_path.exists():
@@ -50,13 +46,36 @@ class Detector:
             processed = set([l.strip() for l in processed_log.read_text(encoding='utf-8').splitlines() if l.strip()])
 
         found_frame_num = 0
+        total_videos = len(video_paths)
+        
+        # 更新进度信息
+        if self.progress_callback:
+            progress_info = {
+                "total_videos": total_videos,
+                "processed_videos": 0
+            }
+            self.progress_callback(progress_info)
 
-        video_files = self._iter_video_files()
-        with tqdm(total=len(video_files), desc="扫描视频文件", unit="file") as pbar:
-            for video_path in video_files:
+        with tqdm(total=total_videos, desc="扫描视频文件", unit="file") as pbar:
+            for i, video_path in enumerate(video_paths):
+                # 更新当前视频信息
+                if self.progress_callback:
+                    progress_info = {
+                        "current_video": video_path.name,
+                        "processed_videos": i
+                    }
+                    self.progress_callback(progress_info)
+                
                 if video_path.name in processed:
                     logger.info("跳过已处理：%s", video_path.name)
                     pbar.update(1)  # 手动更新进度条
+                    
+                    # 更新已处理视频数量
+                    if self.progress_callback:
+                        progress_info = {
+                            "processed_videos": i + 1
+                        }
+                        self.progress_callback(progress_info)
                     continue
 
                 frame_times = self.detect_video(video_path)
@@ -71,6 +90,13 @@ class Detector:
 
                 found_frame_num += len(frame_times)
                 pbar.update(1)  # 手动更新进度条
+                
+                # 更新已处理视频数量
+                if self.progress_callback:
+                    progress_info = {
+                        "processed_videos": i + 1
+                    }
+                    self.progress_callback(progress_info)
         # 检测完成，创建.ok文件
         detect_ok.touch()
 
@@ -107,6 +133,14 @@ class Detector:
         batch_data = []
         batch_time = []
 
+        # 更新当前视频总帧数
+        if self.progress_callback:
+            progress_info = {
+                "current_video": video_path.name,
+                "current_video_total_frames": total_frames
+            }
+            self.progress_callback(progress_info)
+
         pbar = tqdm(total=total_frames if total_frames > 0 else None,
                     desc=f"检测 {video_path.name}", unit="frame", leave=False)
         try:
@@ -118,6 +152,11 @@ class Detector:
                 current_time = cap.get(cv2.CAP_PROP_POS_MSEC) / 1000.0
 
                 if current_time - last_collect_data_time > self.cfg.detect_step:
+                    # 检查是否需要取消
+                    if self.cancel_flag and self.cancel_flag():
+                        logger.info("视频检测任务已取消")
+                        return detected_frame_times  # 返回已检测到的部分结果
+
                     last_collect_data_time = current_time
                     batch_data.append(frame)
                     batch_time.append(current_time)
@@ -131,6 +170,14 @@ class Detector:
                 # 其余帧纯跳过
                 frame_cnt += 1
                 pbar.update(1)
+                
+                # 更新当前视频进度
+                if self.progress_callback:
+                    progress_info = {
+                        "current_video": video_path.name,
+                        "current_video_progress": frame_cnt
+                    }
+                    self.progress_callback(progress_info)
 
             # 循环结束后，处理残余 batch
             if len(batch_data) > 0:

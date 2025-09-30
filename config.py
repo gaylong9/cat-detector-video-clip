@@ -28,6 +28,7 @@ class Config:
     final_video_name: str = "output.mp4"
     start_expand_seconds: float = 2.0
     end_expand_seconds: float = 2.0
+    group_size: int = 50  # 分组大小，每多少个视频拼接为一个输出文件，0表示所有视频拼接为一个文件
 
     # 临时目录（在 output_dir 下）
     tmp_dir_name: str = "tmp_catclipper"
@@ -35,3 +36,4 @@ class Config:
     # 其它
     delete_temp_files: bool = True
     video_extensions: List[str] = field(default_factory=lambda: [".mp4", ".avi", ".mov", ".mkv"])
+    force: bool = False  # 强制重新检测

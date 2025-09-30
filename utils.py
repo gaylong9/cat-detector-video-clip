@@ -41,6 +41,15 @@ def find_ffmpeg() -> Optional[str]:
     return ffmpeg_path
 
 
+def iter_video_files(cfg: Config) -> List[Path]:
+    """获取输入目录的视频文件Path"""
+    p = Path(cfg.input_dir)
+    if not p.exists():
+        raise FileNotFoundError(f"Directory not found: {p}")
+    files = sorted([f for f in p.iterdir() if f.suffix.lower() in cfg.video_extensions])
+    return files
+
+
 def format_seconds(sec: float) -> str:
     """Return string format suitable for ffmpeg (seconds with 2 decimal)"""
     return f"{sec:.2f}"
