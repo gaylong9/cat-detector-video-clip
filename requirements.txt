@@ -1,0 +1,22 @@
+# =============================================================
+# cat-detector-video-clip 依赖（跨平台，适用于 Linux 服务器部署）
+# 安装: pip install -r requirements.txt
+# =============================================================
+
+# 推理框架
+ultralytics>=8.3.0
+openvino>=2024.0.0        # Intel iGPU / CPU 加速（--device intel:gpu / intel:cpu）
+
+# PyTorch（默认 CPU 版；如需 NVIDIA GPU，请从 https://pytorch.org 安装对应 CUDA 版 torch）
+torch>=2.1.0
+torchvision>=0.16.0
+
+# 视频读写 / 图像
+opencv-python>=4.8.0
+
+# 其它
+numpy>=1.24.0
+tqdm>=4.66.0
+
+# Web UI（可选，仅当使用 app.py 时取消注释）
+# flask>=3.0.0

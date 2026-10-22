@@ -49,6 +49,13 @@ python main.py --input_dir "D:/Desktop/dongdong" --output_dir "D:/Desktop/dongdo
 - `--no_clean`	开关参数，保留临时片段等中间数据。默认拼接完成后自动删除临时片段等中间数据（节省空间）；开启后，会保留所有裁剪后的独立片段（便于核验）。使用时直接加参数：`--no_clean`
 - `--step` 检测间隔，单位秒，默认0.25秒。每隔指定时长，检测一帧。故间隔越小，漏检概率越低，但耗时越长。如`--step 0.5`增加间隔。
 - `--batch_size` 批量处理视频帧的批次大小，默认为1，即逐个处理。CPU时默认即可，GPU时可32/64/128...尝试，提高GPU使用率，加快检测速度。
+- `--device` 指定推理设备，默认 `auto`。可选：
+  - `auto`：自动选择，优先级 `cuda:0` → Intel iGPU（OpenVINO）→ `cpu`
+  - `cuda`：仅 NVIDIA GPU
+  - `cpu`：PyTorch 纯 CPU
+  - `intel:gpu`：Intel 核显/集显（走 OpenVINO GPU 插件）
+  - `intel:cpu`：Intel CPU（走 OpenVINO）
+  示例：`--device intel:gpu`
 
 ## 示例
 
@@ -62,9 +69,28 @@ python main.py --input_dir "C:/Monitor/202409" --output_dir "C:/CatResult"
 # 高精度检测：用中尺寸模型，降低阈值减少漏检，缩小检测间隔
 python main.py --input_dir "C:/Monitor/202409" --output_dir "C:/CatResult" --model "yolo11m.pt" --confidence_threshold 0.45 --step 0.1
 
+# 使用 Intel 核显（iGPU）加速（需先 pip install openvino）
+python main.py --input_dir "C:/Monitor/202409" --output_dir "C:/CatResult" --device intel:gpu
+
 # 保留临时片段+验证检测效果：开启保存检测帧图像+不清理临时文件
 python main.py --input_dir "C:/Monitor/202409" --output_dir "C:/CatResult" --save_detect_frame --no_clean
 
 # 强制重新检测：忽略历史进度
 python main.py --input_dir "C:/Monitor/202409" --output_dir "C:/CatResult" --force
 ```
+
+## OpenVINO（Intel iGPU / CPU）说明
+
+在 Intel CPU 机器上，可用 OpenVINO 走 iGPU 或 CPU 推理：
+
+```bash
+pip install openvino
+```
+
+首次使用 OpenVINO 时会从 `.pt` 自动导出 `*_openvino_model/` 目录（含 `.xml`/`.bin`），仅第一次较慢。之后可直接复用。若导出失败，可手动导出：
+
+```bash
+python -c "from ultralytics import YOLO; YOLO('yolo11s.pt').export(format='openvino', half=True)"
+```
+
+注意：OpenVINO 的 GPU 插件只支持 **Intel** 核显/集显（iGPU）；AMD 或 NVIDIA 显卡请使用 `auto`/`cuda`。

@@ -143,9 +143,63 @@ def safe_make_tmp_dir(base: Path, name: str) -> Path:
 def support_cuda():
     return torch.cuda.is_available()
 
+
 def support_fp16():
+    """CUDA 架构 >= 6.0 才支持 FP16 推理。"""
     if not support_cuda():
         return False
-    gpu_arch = torch.cuda.get_device_capability()
-    return gpu_arch[0] >= 6
+    try:
+        gpu_arch = torch.cuda.get_device_capability()
+        return gpu_arch[0] >= 6
+    except Exception:
+        return False
+
+
+def openvino_available_devices() -> List[str]:
+    """返回 OpenVINO 可见设备列表（如 ['CPU','GPU']）；不可用时返回空列表。"""
+    try:
+        import openvino as ov
+        core = ov.Core()
+        return list(core.available_devices)
+    except Exception:
+        return []
+
+
+def support_openvino_gpu() -> bool:
+    """是否可通过 OpenVINO GPU 插件使用 Intel iGPU。"""
+    return any(d == "GPU" or d.startswith("GPU.") for d in openvino_available_devices())
+
+
+def detect_device(preference: str = "auto") -> str:
+    """
+    解析推理设备字符串。
+
+    支持：
+      - auto      : cuda:0 > intel:gpu > cpu 自动选择
+      - cuda      : 仅 NVIDIA GPU
+      - cpu       : 纯 PyTorch CPU
+      - intel:gpu : Intel iGPU（OpenVINO）
+      - intel:cpu : Intel CPU（OpenVINO）
+    """
+    preference = (preference or "auto").lower().strip()
+
+    if preference == "cuda":
+        if support_cuda():
+            return "cuda:0"
+        logger.warning("未检测到 CUDA GPU，回退到 CPU")
+        return "cpu"
+
+    if preference == "cpu":
+        return "cpu"
+
+    if preference.startswith("intel:"):
+        # 直接透传给 ultralytics，内部会自动回退到 AUTO
+        return preference
+
+    # auto / 其它
+    if support_cuda():
+        return "cuda:0"
+    if support_openvino_gpu():
+        return "intel:gpu"
+    return "cpu"
 

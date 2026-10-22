@@ -1,0 +1,63 @@
+services:
+  catclip:
+    image: cat-detect:latest
+
+    container_name: cat-detect
+
+    # 以 root 运行（代码/数据在 root 下，避免权限问题）
+    user: root
+
+    # 注意：不要开 tty。tqdm 在 TTY 下会用 \r 刷新进度条，导致 docker logs 里的日志被打乱/覆盖；
+    # 进度已改用日志输出（每 10% 一条），后台跑也能清晰查看。
+
+    # 重启策略：批处理脚本是"跑完就退出"的一次性任务，通常用 no；
+    # 若希望目录里持续有新视频进来就自动再跑一轮，可改成 unless-stopped 并配合
+    # batch.py 的无限循环（目前 batch.py 处理完即退出，需自行包一层循环）。
+    restart: "no"
+
+    working_dir: /app
+
+    # 批处理入口：把 /data/src 里的视频按 30 个一批处理，结果放到 /data/des
+    command: >
+      python3 batch.py
+      --src /data/src
+      --des /data/des
+      --batch-size 30
+      --model yolo26m.pt
+      --device intel:gpu
+      --step 0.5
+      --max-rounds 0
+
+    environment:
+      # 可选：强制指定设备，避免 iGPU 不可用时程序回退到 CPU
+      - PYTHONUNBUFFERED=1
+      - TZ=Asia/Shanghai
+      # OpenVINO 编译缓存目录：首次 JIT 编译结果会落盘，之后启动跳过编译
+      - CACHE_DIR=/app/cache/openvino
+      # 关闭 tqdm 进度条。tqdm 在非 TTY 下会用 \r+\n 降频刷新，导致 docker logs 刷屏；
+      # 进度已改用日志输出（每 10% 一条）。本地开发想保留进度条可去掉此行。
+      - TQDM_DISABLE=1
+
+    volumes:
+      # 原始视频目录（宿主机绝对路径按需修改）
+      - /srv/dev-disk-by-uuid-9ddbb774-a299-4b00-8823-b5466cd6a87c/cctv/xiaomi_camera_videos/78DF72ECB6B9:/data/src
+      # 拼接结果目录
+      - /srv/dev-disk-by-uuid-9ddbb774-a299-4b00-8823-b5466cd6a87c/private/dongdong/归档:/data/des
+      # 代码目录（可选，仅当镜像内未 COPY 代码、需要挂载源码时启用）
+      - /srv/dev-disk-by-uuid-9ddbb774-a299-4b00-8823-b5466cd6a87c/docker-mount/cat-detect:/app
+      # 时区（让容器内时间与宿主机一致）
+      - /etc/localtime:/etc/localtime:ro
+      
+    # ---- Intel iGPU 加速（OpenVINO）----
+    # 必须把宿主机的 GPU 设备透传给容器，否则 openvino 看不到 iGPU，只能走 CPU
+    devices:
+      - /dev/dri:/dev/dri
+    group_add:
+      # render 组（Ubuntu/Debian 常见）；部分发行版可能是 video 组
+      - "render"
+
+    # 可选：内存/CPU 限制
+    # deploy:
+    #   resources:
+    #     limits:
+    #       memory: 8g

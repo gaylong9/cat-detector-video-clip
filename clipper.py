@@ -1,10 +1,12 @@
 # clipper.py
+import os
+import re
+import time
 from pathlib import Path
 from typing import List, Tuple
 from config import Config
 from utils import run_cmd, find_ffmpeg, safe_make_tmp_dir, format_seconds, logger, read_csv_rows, read_fragment_csv
 from tqdm import tqdm
-import os
 
 
 class Clipper:
@@ -22,8 +24,10 @@ class Clipper:
 
     def cut(self, fragments):
         concat_lines = []
+        total = len(fragments)
+        logger.info("开始裁剪片段，共 %d 个", total)
         # 裁剪每个片段为独立 mp4
-        for idx, (video_name, s, e) in enumerate(tqdm(fragments, desc="裁剪片段", unit="frag")):
+        for idx, (video_name, s, e) in enumerate(tqdm(fragments, desc="裁剪片段", unit="frag"), start=1):
             input_path = Path(self.cfg.input_dir) / video_name
             if not input_path.exists():
                 logger.warning("源视频不存在，跳过：%s", input_path)
@@ -61,6 +65,7 @@ class Clipper:
 
             tmp_frag_path.rename(frag_path)
             concat_lines.append(f"file '{frag_path.resolve()}'")
+            logger.info("裁剪完成（%d/%d）：%s [%s - %s]", idx, total, video_name, format_seconds(s), format_seconds(e))
 
         if not concat_lines:
             raise RuntimeError("没有有效的临时片段可供拼接")

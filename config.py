@@ -17,6 +17,7 @@ class Config:
     save_detect_frame: bool = False  # 保存检测首尾帧，观察检测结果
     detect_step: float = 0.25  # 检测步长：每隔一定时长检测一帧，单位s
     batch_size: int = 1
+    device: str = "auto"  # auto/cuda/cpu/intel:gpu/intel:cpu
 
     # 时间戳与临时/最终文件
     timestamp_csv_name: str = "cat_timestamps.csv"  # CSV: video,start_sec,end_sec
